@@ -1,0 +1,146 @@
+package com.brbrs.tavla.auth
+
+import android.content.Context
+import android.util.Base64
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import javax.inject.Inject
+import javax.inject.Singleton
+
+private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "tavla_auth")
+
+data class LoginFlowInit(val poll: PollEndpoint, val login: String)
+
+data class PollEndpoint(val token: String, val endpoint: String)
+
+data class LoginCredentials(val server: String, val loginName: String, val appPassword: String)
+
+data class TavlaSession(
+    val serverUrl: String,
+    val username: String,
+    val appPassword: String,
+) {
+    fun basicAuthHeader(): String {
+        val raw = "$username:$appPassword"
+        return "Basic " + Base64.encodeToString(raw.toByteArray(), Base64.NO_WRAP)
+    }
+}
+
+@Singleton
+class AuthRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val httpClient: OkHttpClient,
+) {
+    private val SERVER_KEY          = stringPreferencesKey("server_url")
+    private val USER_KEY            = stringPreferencesKey("username")
+    private val PASS_KEY            = stringPreferencesKey("app_password")
+    private val APP_LOCK_KEY        = stringPreferencesKey("app_lock_enabled")
+    private val ONBOARDING_DONE_KEY = stringPreferencesKey("onboarding_done")
+    private val STORAGE_MODE_KEY    = stringPreferencesKey("storage_mode")
+
+    val session: Flow<TavlaSession?> = context.authDataStore.data.map { prefs ->
+        val server = prefs[SERVER_KEY] ?: return@map null
+        val user   = prefs[USER_KEY]   ?: return@map null
+        val pass   = prefs[PASS_KEY]   ?: return@map null
+        TavlaSession(server, user, pass)
+    }
+
+    suspend fun currentSession(): TavlaSession? = session.first()
+
+    suspend fun saveSession(session: TavlaSession) {
+        context.authDataStore.edit { prefs ->
+            prefs[SERVER_KEY] = session.serverUrl
+            prefs[USER_KEY]   = session.username
+            prefs[PASS_KEY]   = session.appPassword
+        }
+    }
+
+    /** Signs out but keeps onboarding state, so a returning user isn't shown the welcome screen again. */
+    suspend fun clearSession() {
+        context.authDataStore.edit { prefs ->
+            prefs.remove(SERVER_KEY)
+            prefs.remove(USER_KEY)
+            prefs.remove(PASS_KEY)
+            prefs.remove(APP_LOCK_KEY)
+        }
+    }
+
+    val appLockEnabled: Flow<Boolean> = context.authDataStore.data.map { prefs ->
+        prefs[APP_LOCK_KEY]?.toBooleanStrictOrNull() ?: false
+    }
+
+    suspend fun setAppLockEnabled(enabled: Boolean) {
+        context.authDataStore.edit { prefs -> prefs[APP_LOCK_KEY] = enabled.toString() }
+    }
+
+    val onboardingDone: Flow<Boolean> = context.authDataStore.data.map { prefs ->
+        prefs[ONBOARDING_DONE_KEY]?.toBooleanStrictOrNull() ?: false
+    }
+
+    suspend fun setOnboardingDone() {
+        context.authDataStore.edit { prefs -> prefs[ONBOARDING_DONE_KEY] = "true" }
+    }
+
+    // -- Storage mode: "nextcloud", "local", or null (never set → treat as nextcloud for upgrades)
+
+    val storageMode: Flow<String?> = context.authDataStore.data.map { prefs ->
+        prefs[STORAGE_MODE_KEY]
+    }
+
+    suspend fun setStorageMode(mode: String) {
+        context.authDataStore.edit { prefs -> prefs[STORAGE_MODE_KEY] = mode }
+    }
+
+    suspend fun isLocalMode(): Boolean = storageMode.first() == "local"
+
+    // -- Nextcloud Login Flow v2 ---------------------------------------------------------
+
+    suspend fun initiateLoginFlow(serverUrl: String): Result<LoginFlowInit> = runCatching {
+        withContext(Dispatchers.IO) {
+            val url = serverUrl.trimEnd('/') + "/index.php/login/v2"
+            val request = Request.Builder()
+                .url(url)
+                .post("".toRequestBody("application/json".toMediaType()))
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                check(response.isSuccessful) { "Server returned ${response.code}" }
+                val json = JSONObject(response.body!!.string())
+                val poll = json.getJSONObject("poll")
+                LoginFlowInit(
+                    poll  = PollEndpoint(token = poll.getString("token"), endpoint = poll.getString("endpoint")),
+                    login = json.getString("login"),
+                )
+            }
+        }
+    }
+
+    suspend fun pollLoginFlow(poll: PollEndpoint): Result<LoginCredentials> = runCatching {
+        withContext(Dispatchers.IO) {
+            val body = "token=${poll.token}".toRequestBody("application/x-www-form-urlencoded".toMediaType())
+            val request = Request.Builder().url(poll.endpoint).post(body).build()
+            httpClient.newCall(request).execute().use { response ->
+                check(response.isSuccessful) { "POLL_NOT_READY:${response.code}" }
+                val json = JSONObject(response.body!!.string())
+                LoginCredentials(
+                    server      = json.getString("server"),
+                    loginName   = json.getString("loginName"),
+                    appPassword = json.getString("appPassword"),
+                )
+            }
+        }
+    }
+}

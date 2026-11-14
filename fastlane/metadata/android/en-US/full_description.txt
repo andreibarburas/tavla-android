@@ -1,0 +1,38 @@
+Tavla is a fast, privacy-first client for Nextcloud Deck, built for people who want their boards to work as well offline as they do connected.
+
+BOARDS, THE WAY DECK INTENDED
+Browse, create and manage boards, lists and cards, with full support for due dates, labels, assignees, attachments, descriptions and archiving. Cards sync straight to your own Nextcloud over WebDAV, no third-party server involved.
+
+BUILT FOR OFFLINE, NOT JUST TOLERANT OF IT
+Edits you make without a connection are saved locally and queued for the server, with automatic retries once you're back online. Boards, cards and board cover images are all cached on-device, so Tavla stays fully usable on a plane, in the subway, or anywhere else Nextcloud isn't reachable.
+
+SOLIDTIME INTEGRATION
+Link a board, or an individual card, to a Solidtime project and track time directly from Tavla: start and stop a timer from any card, auto-generate Solidtime tasks per card, tag entries by list, and review time logged against a card without leaving the app. Timers keep running safely through app restarts and offline stretches, and sync back to Solidtime the moment you're connected again.
+
+SEE ACROSS YOUR BOARDS, NOT JUST INSIDE ONE
+Search finds any card by title or description across every board at once. A calendar view lays out everything due this week or month, lets you jump into any day, and reschedule a card by dragging it to a new date. Board insights show cards completed per week, overdue trends, average time-to-done and your busiest lists, all computed locally from what's already synced.
+
+PART OF THE BARBURASLAB SUITE
+Tavla links cards to contacts you manage in Vinci, so a card shows up right on that contact's profile, one more way the suite works better together without ever leaving Nextcloud as the source of truth.
+
+MAKE IT YOURS
+System, Light, Dark and OLED Black themes, each board's own color accenting its own screen, adjustable text size, and the DM Serif Display + Inter Tight font pairing shared across the suite.
+
+NO COMPROMISES ON PRIVACY
+Tavla talks only to your own Nextcloud. Nothing is sent anywhere else, no accounts to create, no analytics running in the background. It's free, open-source, and built for people who want to own their own data.
+
+FEATURES
+- Direct Nextcloud Deck sync over WebDAV, no third-party server
+- Full board, list and card management, including labels, assignees, due dates, attachments and archiving
+- Checklists and comments that stay in sync with Deck on the web
+- Offline edits with a queue: changes made without a connection are saved locally and sent to the server later, with retries
+- Cross-board search by card title and description
+- Calendar view with drag-to-reschedule
+- Board insights: cards finished per week, overdue trend, average time to done, busiest lists
+- Solidtime time tracking: per-board project links, per-card overrides, start/stop timers, auto-generated tasks, list tags
+- Board cover images and icons, synced through your own Nextcloud
+- Linked contacts: link a card to a Vinci contact, visible from both apps
+- Local due-date reminders, no push server involved
+- Share text or a link from any app straight into a new card
+- Optional biometric app lock
+- System, Light, Dark and OLED Black themes, adjustable text size

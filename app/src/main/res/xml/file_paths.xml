@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Camera captures land here before being uploaded as a card attachment. -->
+    <cache-path name="captures" path="captures/" />
+    <!-- Downloaded attachments are cached here before being opened in another app. -->
+    <cache-path name="attachments" path="attachments/" />
+</paths>

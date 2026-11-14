@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Only used to look up a contact's CardDAV UID for the "link a contact" picker on a card. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Solidtime running-timer notification runs as a foreground service so it keeps ticking
+         and stays stoppable while Tavla is in the background. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
+    <!-- "Send to Nóta" / "Send to Koto", and the fallback when a "Linked item" link's custom
+         scheme isn't handled: lets Tavla check whether another suite app is installed and
+         launch it directly, instead of always falling through to the Play Store. -->
+    <queries>
+        <package android:name="com.brbrs.vinci" />
+        <package android:name="com.brbrs.nota" />
+        <package android:name="com.brbrs.koto" />
+    </queries>
+
+    <application
+        android:name=".TavlaApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Tavla"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Cross-app deep link: tavla://card/{cardId} lets Vinci (or another suite app)
+                 jump straight to a specific card. cardId is Deck's own stable server id. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tavla" android:host="card" />
+            </intent-filter>
+        </activity>
+
+        <!-- #05 Share-to-create-card: "Share" from any app with text/a link offers Tavla. -->
+        <activity
+            android:name=".share.ShareReceiverActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Tavla"
+            android:windowSoftInputMode="adjustResize"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Reschedules due-date reminders after a reboot, since AlarmManager alarms don't survive one. -->
+        <receiver
+            android:name=".reminders.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Solidtime: foreground service that shows the running-timer notification. -->
+        <service
+            android:name=".solidtime.timer.TimerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Tracks the user's active Solidtime time entry so the elapsed time keeps updating and the timer stays stoppable from the notification." />
+        </service>
+
+        <!-- Handles the Stop action on the running-timer notification. -->
+        <receiver
+            android:name=".solidtime.timer.TimerActionReceiver"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Hilt provides the WorkManager Configuration (see TavlaApp), so the default
+             WorkManagerInitializer must be disabled or the two would fight over init. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+    </application>
+</manifest>
